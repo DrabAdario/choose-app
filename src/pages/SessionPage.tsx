@@ -18,6 +18,7 @@ import { ParticipantPresence } from '../components/ParticipantPresence'
 import { useActivityToast } from '../hooks/useActivityToast'
 import { usePollSession } from '../hooks/usePollSession'
 import { getStoredDisplayName, setStoredDisplayName } from '../lib/displayNameStorage'
+import { buildInviteUrl } from '../lib/shareUrl'
 import { isSupabaseConfigured } from '../lib/supabase'
 
 export function SessionPage() {
@@ -44,11 +45,11 @@ export function SessionPage() {
 
   const toast = useActivityToast(poll.activity)
 
-  const shareUrl = useMemo(() => {
-    if (!sessionId) return ''
-    const { origin, pathname } = window.location
-    return `${origin}${pathname}#/session/${sessionId}`
-  }, [sessionId])
+  const shareUrl = useMemo(
+    () =>
+      sessionId ? buildInviteUrl('session', sessionId) : '',
+    [sessionId],
+  )
 
   const counts = useMemo(() => {
     const tally: Record<string, number> = {}
@@ -149,10 +150,13 @@ export function SessionPage() {
         )}
 
         {!isSupabaseConfigured && (
-          <Alert severity="info">
-            Supabase env vars are missing. Votes stay on this device only. Add{' '}
+          <Alert severity="warning">
+            Live sync is off: this build has no Supabase URL/key. Each device
+            keeps its own copy — invites will not match. For local dev, add{' '}
             <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code>{' '}
-            to <code>.env</code>.
+            to <code>.env</code>. For GitHub Pages, add the same two as{' '}
+            <strong>repository secrets</strong> so CI can inject them at build
+            time (see README).
           </Alert>
         )}
 

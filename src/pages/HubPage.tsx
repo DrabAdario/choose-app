@@ -38,8 +38,10 @@ export function HubPage() {
 
       {!isSupabaseConfigured && (
         <Alert severity="warning">
-          Add <code>VITE_SUPABASE_URL</code> and{' '}
-          <code>VITE_SUPABASE_ANON_KEY</code> to <code>.env</code> for live sync.
+          Live sync needs Supabase: add <code>VITE_SUPABASE_URL</code> and{' '}
+          <code>VITE_SUPABASE_ANON_KEY</code> to <code>.env</code> locally, or as
+          GitHub <strong>repository secrets</strong> for Pages builds (see
+          README). Without them, sessions do not share across devices.
         </Alert>
       )}
 
