@@ -14,10 +14,14 @@ function cleanEnv(value: string | undefined): string {
 }
 
 const url = cleanEnv(import.meta.env.VITE_SUPABASE_URL)
-const anonKey = cleanEnv(import.meta.env.VITE_SUPABASE_ANON_KEY)
+/** Legacy JWT anon key, or new publishable key from the dashboard (`sb_publishable_…`). */
+const apiKey = cleanEnv(
+  import.meta.env.VITE_SUPABASE_ANON_KEY ||
+    import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+)
 
-export const isSupabaseConfigured = Boolean(url && anonKey)
+export const isSupabaseConfigured = Boolean(url && apiKey)
 
 export const supabase: SupabaseClient | null = isSupabaseConfigured
-  ? createClient(url, anonKey)
+  ? createClient(url, apiKey)
   : null

@@ -7,13 +7,38 @@ export type PollState = {
   options: { id: string; text: string }[]
   votes: Record<string, string>
   closed: boolean
+  /**
+   * `true` = only adding options (voting disabled). `false` = voting open, adding disabled.
+   * Omitted in legacy stored state = both add and vote allowed (old behavior).
+   */
+  gatherPhase?: boolean
   /** participantId -> display name */
   names?: Record<string, string>
   activity?: SessionActivityEvent[]
 }
 
+/** New sessions: options-only until someone starts voting. Legacy: both allowed. */
+export function pollCanAddOptions(p: PollState): boolean {
+  if (p.closed) return false
+  if (p.gatherPhase === undefined) return true
+  return p.gatherPhase === true
+}
+
+export function pollCanVote(p: PollState): boolean {
+  if (p.closed) return false
+  if (p.gatherPhase === undefined) return true
+  return p.gatherPhase === false
+}
+
 export function emptyPoll(): PollState {
-  return { options: [], votes: {}, closed: false, names: {}, activity: [] }
+  return {
+    options: [],
+    votes: {},
+    closed: false,
+    gatherPhase: true,
+    names: {},
+    activity: [],
+  }
 }
 
 export function parsePollState(data: unknown): PollState {
@@ -40,6 +65,11 @@ export function parsePollState(data: unknown): PollState {
   }
   const closed = typeof d.closed === 'boolean' ? d.closed : false
 
+  let gatherPhase: boolean | undefined
+  if ('gatherPhase' in d && typeof d.gatherPhase === 'boolean') {
+    gatherPhase = d.gatherPhase
+  }
+
   const names: Record<string, string> = {}
   const rawNames = d.names
   if (rawNames && typeof rawNames === 'object' && !Array.isArray(rawNames)) {
@@ -50,5 +80,5 @@ export function parsePollState(data: unknown): PollState {
 
   const activity = parseActivityList(d.activity)
 
-  return { options, votes, closed, names, activity }
+  return { options, votes, closed, gatherPhase, names, activity }
 }

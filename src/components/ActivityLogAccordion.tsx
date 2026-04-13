@@ -26,6 +26,7 @@ function canTryUndo(ev: SessionActivityEvent, tool: 'poll' | 'wheel'): boolean {
     return (
       ev.kind === 'add_option' ||
       ev.kind === 'vote' ||
+      ev.kind === 'start_voting' ||
       ev.kind === 'close_poll'
     )
   }

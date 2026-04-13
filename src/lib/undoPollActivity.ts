@@ -51,6 +51,19 @@ export function applyPollUndo(
         },
       }
     }
+    case 'start_voting': {
+      if (prev.gatherPhase !== false) {
+        return { error: 'Undo is only valid after voting has started.' }
+      }
+      return {
+        next: {
+          ...prev,
+          gatherPhase: true,
+          votes: {},
+          activity: markActivityUndone(prev.activity, event.id),
+        },
+      }
+    }
     case 'close_poll': {
       if (!prev.closed) {
         return { error: 'The poll is already open.' }

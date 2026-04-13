@@ -22,13 +22,15 @@ The repo includes **`.env.example`**. Copy it to **`.env`** and fill in values (
 | Variable | Where to find it |
 |----------|------------------|
 | `VITE_SUPABASE_URL` | Supabase → Project Settings → API → Project URL |
-| `VITE_SUPABASE_ANON_KEY` | Same page — anon / public / publishable key (safe to expose in the client; protect data with RLS) |
+| `VITE_SUPABASE_ANON_KEY` *or* `VITE_SUPABASE_PUBLISHABLE_KEY` | Same page — legacy **anon** JWT, or the new **publishable** key (`sb_publishable_…`). Never use `service_role` in the client. |
+
+Set **one** of the key variables (not both). The dashboard may show only **Publishable**; use `VITE_SUPABASE_PUBLISHABLE_KEY` for that value.
 
 Do **not** add the Postgres password, `service_role` key, or `postgresql://…` URI to `.env` for this app—the React client does not use them.
 
-For **GitHub Pages** builds, add the same two variables as [repository secrets](https://docs.github.com/en/actions/security-guides/using-secrets-in-github-actions) named `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` so the [deploy workflow](.github/workflows/deploy-pages.yml) can inject them at build time.
+For **GitHub Pages** builds, add `VITE_SUPABASE_URL` and **either** `VITE_SUPABASE_ANON_KEY` **or** `VITE_SUPABASE_PUBLISHABLE_KEY` as [repository secrets](https://docs.github.com/en/actions/security-guides/using-secrets-in-github-actions) (same names as above) so the [deploy workflow](.github/workflows/deploy-pages.yml) can inject them at build time.
 
-If the app shows **“Invalid API key”**, the URL and key are not a matching pair for one project: re-copy **Project URL** and the **anon public** key (not `service_role`) from Supabase → Project Settings → API, with no extra spaces or quotes. Update repository secrets and push again so CI rebuilds.
+If the app shows **“Invalid API key”**, the URL and key are not a matching pair for one project: re-copy **Project URL** and the **publishable** or **anon** key (not `service_role`) from Supabase → Project Settings → API, with no extra spaces or quotes. Update repository secrets and push again so CI rebuilds.
 
 ### Database schema
 

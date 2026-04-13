@@ -181,9 +181,10 @@ export function WheelPage() {
         {!isSupabaseConfigured && (
           <Alert severity="warning">
             Live sync is off: this build has no Supabase URL/key. Each device
-            keeps its own copy — invites will not match. For local dev, add{' '}
-            <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code>{' '}
-            to <code>.env</code>. For GitHub Pages, add the same two as{' '}
+            keeps its own copy — invites will not match.             For local dev, add <code>VITE_SUPABASE_URL</code> and{' '}
+            <code>VITE_SUPABASE_ANON_KEY</code> or{' '}
+            <code>VITE_SUPABASE_PUBLISHABLE_KEY</code> to <code>.env</code>. For
+            GitHub Pages, add the same variables as{' '}
             <strong>repository secrets</strong> so CI can inject them at build
             time (see README).
           </Alert>

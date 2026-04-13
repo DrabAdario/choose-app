@@ -6,6 +6,8 @@ import { appendActivity } from '../lib/sessionActivity'
 import {
   emptyPoll,
   parsePollState,
+  pollCanAddOptions,
+  pollCanVote,
   type PollState,
 } from '../lib/pollTypes'
 import { applyPollUndo } from '../lib/undoPollActivity'
@@ -39,6 +41,7 @@ export function usePollSession(
   addOption: (text: string) => void
   vote: (optionId: string) => void
   closePoll: () => void
+  startVoting: () => void
   undoActivity: (eventId: string) => string | null
 } {
   const participantId = sessionId
@@ -176,7 +179,7 @@ export function usePollSession(
       const t = text.trim()
       if (!t) return
       const prev = pollRef.current
-      if (prev.closed) return
+      if (!pollCanAddOptions(prev)) return
       const actor = actorDisplayName.trim()
       const optionId = crypto.randomUUID()
       let next = mergeParticipantName(prev, participantId, actorDisplayName)
@@ -201,7 +204,7 @@ export function usePollSession(
     (optionId: string) => {
       if (!actorDisplayName.trim()) return
       const prev = pollRef.current
-      if (prev.closed) return
+      if (!pollCanVote(prev)) return
       const actor = actorDisplayName.trim()
       const optLabel =
         prev.options.find((o) => o.id === optionId)?.text ?? ''
@@ -223,10 +226,31 @@ export function usePollSession(
     [actorDisplayName, participantId, persistRemote],
   )
 
+  const startVoting = useCallback(() => {
+    if (!actorDisplayName.trim()) return
+    const prev = pollRef.current
+    if (prev.closed || prev.gatherPhase !== true) return
+    if (prev.options.length === 0) return
+    const actor = actorDisplayName.trim()
+    let next = mergeParticipantName(prev, participantId, actorDisplayName)
+    next = {
+      ...next,
+      gatherPhase: false,
+      activity: appendActivity(next.activity, {
+        participantId,
+        actorName: actor,
+        kind: 'start_voting',
+      }),
+    }
+    setPoll(next)
+    if (modeRef.current === 'remote') void persistRemote(next)
+  }, [actorDisplayName, participantId, persistRemote])
+
   const closePoll = useCallback(() => {
     if (!actorDisplayName.trim()) return
     const prev = pollRef.current
     if (prev.closed) return
+    if (prev.gatherPhase === true) return
     const actor = actorDisplayName.trim()
     let next = mergeParticipantName(prev, participantId, actorDisplayName)
     next = {
@@ -270,6 +294,7 @@ export function usePollSession(
     addOption,
     vote,
     closePoll,
+    startVoting,
     undoActivity,
   }
 }

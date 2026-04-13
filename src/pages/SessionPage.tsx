@@ -18,6 +18,7 @@ import { ParticipantPresence } from '../components/ParticipantPresence'
 import { useActivityToast } from '../hooks/useActivityToast'
 import { usePollSession } from '../hooks/usePollSession'
 import { getStoredDisplayName, setStoredDisplayName } from '../lib/displayNameStorage'
+import { pollCanAddOptions, pollCanVote } from '../lib/pollTypes'
 import { buildInviteUrl } from '../lib/shareUrl'
 import { isSupabaseConfigured } from '../lib/supabase'
 
@@ -38,6 +39,7 @@ export function SessionPage() {
     addOption,
     vote,
     closePoll,
+    startVoting,
     undoActivity,
   } = usePollSession(sessionId, displayName)
 
@@ -75,7 +77,10 @@ export function SessionPage() {
   }, [poll.closed, poll.options, counts])
 
   const loading = mode === 'loading'
-  const disabled = loading || poll.closed || !nameReady
+  const baseDisabled = loading || poll.closed || !nameReady
+  const addDisabled = baseDisabled || !pollCanAddOptions(poll)
+  const voteDisabled = baseDisabled || !pollCanVote(poll)
+  const inGatherOnlyPhase = poll.gatherPhase === true
 
   function onAddOption() {
     addOption(draft)
@@ -153,8 +158,10 @@ export function SessionPage() {
           <Alert severity="warning">
             Live sync is off: this build has no Supabase URL/key. Each device
             keeps its own copy — invites will not match. For local dev, add{' '}
-            <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code>{' '}
-            to <code>.env</code>. For GitHub Pages, add the same two as{' '}
+            <code>VITE_SUPABASE_URL</code> and{' '}
+            <code>VITE_SUPABASE_ANON_KEY</code> or{' '}
+            <code>VITE_SUPABASE_PUBLISHABLE_KEY</code> to <code>.env</code>. For
+            GitHub Pages, add the same variables as{' '}
             <strong>repository secrets</strong> so CI can inject them at build
             time (see README).
           </Alert>
@@ -169,6 +176,12 @@ export function SessionPage() {
             <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600 }}>
               Options
             </Typography>
+            {inGatherOnlyPhase && (
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                Add choices below, then press <strong>Start voting</strong> when
+                everyone is ready — votes stay off until then.
+              </Typography>
+            )}
             <Stack
               direction={{ xs: 'column', sm: 'row' }}
               spacing={1}
@@ -179,7 +192,7 @@ export function SessionPage() {
                 size="small"
                 label="Add an option"
                 value={draft}
-                disabled={disabled}
+                disabled={addDisabled}
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
@@ -188,7 +201,7 @@ export function SessionPage() {
                   }
                 }}
               />
-              <Button variant="outlined" disabled={disabled} onClick={onAddOption}>
+              <Button variant="outlined" disabled={addDisabled} onClick={onAddOption}>
                 Add
               </Button>
             </Stack>
@@ -208,7 +221,7 @@ export function SessionPage() {
                     variant={selected ? 'contained' : 'outlined'}
                     color={selected ? 'primary' : 'inherit'}
                     onClick={() => vote(o.id)}
-                    disabled={disabled}
+                    disabled={voteDisabled}
                     sx={{ justifyContent: 'space-between', textTransform: 'none' }}
                   >
                     <span>{o.text}</span>
@@ -231,9 +244,23 @@ export function SessionPage() {
                 mt: 2,
               }}
             >
+              {inGatherOnlyPhase && (
+                <Button
+                  variant="contained"
+                  color="secondary"
+                  disabled={baseDisabled || poll.options.length === 0}
+                  onClick={startVoting}
+                >
+                  Start voting
+                </Button>
+              )}
               <Button
                 variant="contained"
-                disabled={disabled || poll.options.length === 0}
+                disabled={
+                  baseDisabled ||
+                  poll.options.length === 0 ||
+                  inGatherOnlyPhase
+                }
                 onClick={closePoll}
               >
                 Close voting

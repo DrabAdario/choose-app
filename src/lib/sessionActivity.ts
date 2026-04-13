@@ -1,6 +1,7 @@
 export type ActivityKind =
   | 'add_option'
   | 'vote'
+  | 'start_voting'
   | 'close_poll'
   | 'spin_result'
 
@@ -44,6 +45,7 @@ export function appendActivity(
 const KINDS: ActivityKind[] = [
   'add_option',
   'vote',
+  'start_voting',
   'close_poll',
   'spin_result',
 ]
@@ -102,6 +104,8 @@ export function formatActivityMessage(e: SessionActivityEvent): string {
       return e.detail
         ? `${name} voted on “${e.detail}”`
         : `${name} voted`
+    case 'start_voting':
+      return `${name} started voting`
     case 'close_poll':
       return `${name} closed voting`
     case 'spin_result':

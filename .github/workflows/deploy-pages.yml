@@ -31,9 +31,10 @@ jobs:
           VITE_BASE_PATH: /${{ github.event.repository.name }}/
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: |
-          if [ -z "$VITE_SUPABASE_URL" ] || [ -z "$VITE_SUPABASE_ANON_KEY" ]; then
-            echo "::warning::Supabase env is missing — the deployed site will not sync sessions across devices. Add repository secrets VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY (see README)."
+          if [ -z "$VITE_SUPABASE_URL" ] || { [ -z "$VITE_SUPABASE_ANON_KEY" ] && [ -z "$VITE_SUPABASE_PUBLISHABLE_KEY" ]; }; then
+            echo "::warning::Supabase env is missing — the deployed site will not sync sessions across devices. Add VITE_SUPABASE_URL plus either VITE_SUPABASE_ANON_KEY or VITE_SUPABASE_PUBLISHABLE_KEY (see README)."
           fi
           npm run build
       - uses: actions/upload-pages-artifact@v3
