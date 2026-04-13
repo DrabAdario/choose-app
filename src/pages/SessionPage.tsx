@@ -1,49 +1,19 @@
 import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { usePollSession } from '../hooks/usePollSession'
 import { isSupabaseConfigured } from '../lib/supabase'
-
-type PollState = {
-  options: { id: string; text: string }[]
-  votes: Record<string, string>
-  closed: boolean
-}
-
-function emptyPoll(): PollState {
-  return { options: [], votes: {}, closed: false }
-}
 
 export function SessionPage() {
   const { sessionId } = useParams<{ sessionId: string }>()
   const [draft, setDraft] = useState('')
-  const [poll, setPoll] = useState<PollState>(() => emptyPoll())
-  const [participantId] = useState(() => crypto.randomUUID())
+  const { mode, poll, error, participantId, addOption, vote, closePoll } =
+    usePollSession(sessionId)
 
   const shareUrl = useMemo(() => {
+    if (!sessionId) return ''
     const { origin, pathname } = window.location
     return `${origin}${pathname}#/session/${sessionId}`
   }, [sessionId])
-
-  function addOption() {
-    const text = draft.trim()
-    if (!text || poll.closed) return
-    setPoll((p) => ({
-      ...p,
-      options: [...p.options, { id: crypto.randomUUID(), text }],
-    }))
-    setDraft('')
-  }
-
-  function vote(optionId: string) {
-    if (poll.closed) return
-    setPoll((p) => ({
-      ...p,
-      votes: { ...p.votes, [participantId]: optionId },
-    }))
-  }
-
-  function closePoll() {
-    setPoll((p) => ({ ...p, closed: true }))
-  }
 
   const counts = useMemo(() => {
     const tally: Record<string, number> = {}
@@ -68,6 +38,14 @@ export function SessionPage() {
     return poll.options.find((o) => o.id === best) ?? null
   }, [poll.closed, poll.options, counts])
 
+  const loading = mode === 'loading'
+  const disabled = loading || poll.closed
+
+  function onAddOption() {
+    addOption(draft)
+    setDraft('')
+  }
+
   if (!sessionId) {
     return (
       <p>
@@ -91,10 +69,30 @@ export function SessionPage() {
         </button>
       </div>
 
+      {error && (
+        <p className="banner banner-warn" role="alert">
+          {error}
+        </p>
+      )}
+
+      {mode === 'remote' && (
+        <p className="banner banner-live" role="status">
+          Live — changes sync across devices.
+        </p>
+      )}
+
       {!isSupabaseConfigured && (
         <p className="banner banner-warn" role="status">
-          Showing local-only state. Connect Supabase to sync votes across
-          devices.
+          Supabase env vars are missing. Votes stay on this device only. Add
+          <code className="inline-code"> VITE_SUPABASE_URL </code> and
+          <code className="inline-code"> VITE_SUPABASE_ANON_KEY </code> to
+          <code className="inline-code"> .env</code>.
+        </p>
+      )}
+
+      {loading && (
+        <p className="muted" role="status">
+          Loading session…
         </p>
       )}
 
@@ -105,20 +103,20 @@ export function SessionPage() {
             className="input"
             placeholder="Add an option"
             value={draft}
-            disabled={poll.closed}
+            disabled={disabled}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 e.preventDefault()
-                addOption()
+                onAddOption()
               }
             }}
           />
           <button
             type="button"
             className="btn btn-secondary"
-            disabled={poll.closed}
-            onClick={addOption}
+            disabled={disabled}
+            onClick={onAddOption}
           >
             Add
           </button>
@@ -135,7 +133,7 @@ export function SessionPage() {
                 <button
                   type="button"
                   className={`option-btn${selected ? ' option-btn-active' : ''}`}
-                  disabled={poll.closed}
+                  disabled={disabled}
                   onClick={() => vote(o.id)}
                 >
                   <span>{o.text}</span>
@@ -150,7 +148,7 @@ export function SessionPage() {
           <button
             type="button"
             className="btn btn-primary"
-            disabled={poll.closed || poll.options.length === 0}
+            disabled={disabled || poll.options.length === 0}
             onClick={closePoll}
           >
             Close voting

@@ -183,6 +183,12 @@ a:hover {
   color: var(--text);
 }
 
+.banner-live {
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  color: var(--text);
+}
+
 .inline-code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     'Liberation Mono', monospace;

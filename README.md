@@ -8,10 +8,27 @@ Stack: **React**, **TypeScript**, and **Vite**. The UI works without a backend t
 
 ```bash
 npm install
+cp .env.example .env
+# Edit .env and add your Supabase URL and anon key (see table below).
 npm run dev
 ```
 
-Optional: copy `.env.example` to `.env` and set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` when you wire up sync.
+### Environment variables
+
+The repo includes **`.env.example`**. Copy it to **`.env`** and fill in values (`.env` is gitignored—never commit it):
+
+| Variable | Where to find it |
+|----------|------------------|
+| `VITE_SUPABASE_URL` | Supabase → Project Settings → API → Project URL |
+| `VITE_SUPABASE_ANON_KEY` | Same page — anon / public / publishable key (safe to expose in the client; protect data with RLS) |
+
+Do **not** add the Postgres password, `service_role` key, or `postgresql://…` URI to `.env` for this app—the React client does not use them.
+
+For **GitHub Pages** builds, add the same two variables as [repository secrets](https://docs.github.com/en/actions/security-guides/using-secrets-in-github-actions) named `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` so the [deploy workflow](.github/workflows/deploy-pages.yml) can inject them at build time.
+
+### Database schema
+
+Apply the SQL in [`supabase/migrations/001_sessions.sql`](supabase/migrations/001_sessions.sql) once in the Supabase SQL Editor (or via the Supabase CLI). That creates the `sessions` table, RLS policies, and Realtime for shared polls.
 
 ## Scripts
 
@@ -26,7 +43,7 @@ Optional: copy `.env.example` to `.env` and set `VITE_SUPABASE_URL` and `VITE_SU
 
 The included [GitHub Actions workflow](.github/workflows/deploy-pages.yml) can publish a production build to **GitHub Pages**. Builds use the base path `/<repository-name>/` for project URLs like `https://<user>.github.io/<repo>/`. The app uses **hash-based** routes (`#/`, `#/join`, `#/session/...`) so reloads work without extra SPA configuration.
 
-To turn on Supabase in that build, add repository secrets `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (the anon key is public by design; protect data with Row Level Security in Supabase). The workflow passes them into `npm run build`.
+To turn on Supabase in that build, use the same repository secrets as in [Environment variables](#environment-variables) above. The workflow passes them into `npm run build`.
 
 ## Backend and realtime
 
