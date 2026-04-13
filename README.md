@@ -28,6 +28,8 @@ Do **not** add the Postgres password, `service_role` key, or `postgresql://…` 
 
 For **GitHub Pages** builds, add the same two variables as [repository secrets](https://docs.github.com/en/actions/security-guides/using-secrets-in-github-actions) named `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` so the [deploy workflow](.github/workflows/deploy-pages.yml) can inject them at build time.
 
+If the app shows **“Invalid API key”**, the URL and key are not a matching pair for one project: re-copy **Project URL** and the **anon public** key (not `service_role`) from Supabase → Project Settings → API, with no extra spaces or quotes. Update repository secrets and push again so CI rebuilds.
+
 ### Database schema
 
 Apply the SQL in [`supabase/migrations/001_sessions.sql`](supabase/migrations/001_sessions.sql) once in the Supabase SQL Editor (or via the Supabase CLI). That creates the `sessions` table, RLS policies, and Realtime for shared polls.
