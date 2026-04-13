@@ -2,7 +2,9 @@
 
 **Choose** is a mobile-first web app for groups who want to pick something together—where to eat, what to watch, or any short list of options—without endless group chat. You get a central hub, decision tools (starting with a **poll**), and room to add shared, realtime sync later so votes and choices stay in step for everyone in the session.
 
-Stack: **React**, **TypeScript**, and **Vite**. The UI works without a backend today; connecting **Supabase** (or similar) unlocks durable, multi-device sessions.
+Stack: **React**, **TypeScript**, **Vite**, and **MUI**. Routes: hub (`#/`),
+poll session (`#/session/:id`), wheel (`#/wheel/:id`), and join (`#/join`).
+Connecting **Supabase** unlocks durable, multi-device sessions for poll and wheel.
 
 ## Development
 

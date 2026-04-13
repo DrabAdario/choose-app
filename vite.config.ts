@@ -13,4 +13,9 @@ function viteBase(): string {
 export default defineConfig({
   plugins: [react()],
   base: viteBase(),
+  /** Listen on LAN (0.0.0.0) so phones/tablets can open http://<your-ip>:5173 */
+  server: {
+    host: true,
+    port: 5173,
+  },
 })

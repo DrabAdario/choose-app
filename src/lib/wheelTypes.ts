@@ -3,21 +3,20 @@ import {
   type SessionActivityEvent,
 } from './sessionActivity'
 
-export type PollState = {
+export type WheelState = {
   options: { id: string; text: string }[]
-  votes: Record<string, string>
-  closed: boolean
-  /** participantId -> display name */
+  /** Last spin result (option id). */
+  resultId?: string | null
   names?: Record<string, string>
   activity?: SessionActivityEvent[]
 }
 
-export function emptyPoll(): PollState {
-  return { options: [], votes: {}, closed: false, names: {}, activity: [] }
+export function emptyWheel(): WheelState {
+  return { options: [], resultId: null, names: {}, activity: [] }
 }
 
-export function parsePollState(data: unknown): PollState {
-  const e = emptyPoll()
+export function parseWheelState(data: unknown): WheelState {
+  const e = emptyWheel()
   if (!data || typeof data !== 'object') return e
   const d = data as Record<string, unknown>
   const options = Array.isArray(d.options)
@@ -31,14 +30,12 @@ export function parsePollState(data: unknown): PollState {
         })
         .filter((x): x is { id: string; text: string } => x !== null)
     : []
-  const rawVotes = d.votes
-  const votes: Record<string, string> = {}
-  if (rawVotes && typeof rawVotes === 'object' && !Array.isArray(rawVotes)) {
-    for (const [k, v] of Object.entries(rawVotes)) {
-      if (typeof k === 'string' && typeof v === 'string') votes[k] = v
-    }
-  }
-  const closed = typeof d.closed === 'boolean' ? d.closed : false
+  const resultId =
+    d.resultId === null || d.resultId === undefined
+      ? null
+      : typeof d.resultId === 'string'
+        ? d.resultId
+        : null
 
   const names: Record<string, string> = {}
   const rawNames = d.names
@@ -50,5 +47,5 @@ export function parsePollState(data: unknown): PollState {
 
   const activity = parseActivityList(d.activity)
 
-  return { options, votes, closed, names, activity }
+  return { options, resultId, names, activity }
 }

@@ -4,16 +4,16 @@ import { getOrCreateParticipantId } from '../lib/participantStorage'
 import { mergeParticipantName } from '../lib/participantNames'
 import { appendActivity } from '../lib/sessionActivity'
 import {
-  emptyPoll,
-  parsePollState,
-  type PollState,
-} from '../lib/pollTypes'
-import { applyPollUndo } from '../lib/undoPollActivity'
+  emptyWheel,
+  parseWheelState,
+  type WheelState,
+} from '../lib/wheelTypes'
+import { applyWheelUndo } from '../lib/undoWheelActivity'
 import { isValidSessionUuid } from '../lib/uuid'
 
-export type PollSessionMode = 'loading' | 'remote' | 'local'
+export type WheelSessionMode = 'loading' | 'remote' | 'local'
 
-function initialMode(sessionId: string | undefined): PollSessionMode {
+function initialMode(sessionId: string | undefined): WheelSessionMode {
   if (!sessionId) return 'local'
   if (!isSupabaseConfigured || !supabase) return 'local'
   if (!isValidSessionUuid(sessionId)) return 'local'
@@ -23,48 +23,50 @@ function initialMode(sessionId: string | undefined): PollSessionMode {
 function initialError(sessionId: string | undefined): string | null {
   if (!sessionId) return null
   if (!isValidSessionUuid(sessionId)) {
-    return 'This session id is not a UUID. Supabase sync is off; votes stay on this device only.'
+    return 'This session id is not a UUID. Supabase sync is off; state stays on this device only.'
   }
   return null
 }
 
-export function usePollSession(
+export function useWheelSession(
   sessionId: string | undefined,
   actorDisplayName: string,
 ): {
-  mode: PollSessionMode
-  poll: PollState
+  mode: WheelSessionMode
+  wheel: WheelState
   error: string | null
   participantId: string
   addOption: (text: string) => void
-  vote: (optionId: string) => void
-  closePoll: () => void
+  setResult: (
+    optionId: string | null,
+    spinMeta?: { winnerLabel?: string },
+  ) => void
   undoActivity: (eventId: string) => string | null
 } {
   const participantId = sessionId
     ? getOrCreateParticipantId(sessionId)
     : ''
 
-  const [mode, setMode] = useState<PollSessionMode>(() =>
+  const [mode, setMode] = useState<WheelSessionMode>(() =>
     initialMode(sessionId),
   )
-  const [poll, setPoll] = useState<PollState>(emptyPoll)
+  const [wheel, setWheel] = useState<WheelState>(emptyWheel)
   const [error, setError] = useState<string | null>(() =>
     initialError(sessionId),
   )
-  const pollRef = useRef(poll)
+  const wheelRef = useRef(wheel)
   const modeRef = useRef(mode)
 
   useEffect(() => {
-    pollRef.current = poll
-  }, [poll])
+    wheelRef.current = wheel
+  }, [wheel])
 
   useEffect(() => {
     modeRef.current = mode
   }, [mode])
 
   const persistRemote = useCallback(
-    async (next: PollState) => {
+    async (next: WheelState) => {
       if (!sessionId || !supabase) return
       const { error: upErr } = await supabase
         .from('sessions')
@@ -78,13 +80,12 @@ export function usePollSession(
     [sessionId],
   )
 
-  /** Keep display name in sync when the user sets it (no activity row). */
   useEffect(() => {
     if (!participantId || !actorDisplayName.trim()) return
-    const prev = pollRef.current
+    const prev = wheelRef.current
     const merged = mergeParticipantName(prev, participantId, actorDisplayName)
     if (merged === prev) return
-    setPoll(merged)
+    setWheel(merged)
     if (modeRef.current === 'remote') void persistRemote(merged)
   }, [actorDisplayName, participantId, persistRemote])
 
@@ -110,15 +111,15 @@ export function usePollSession(
       }
 
       if (existing) {
-        setPoll(parsePollState(existing.state))
+        setWheel(parseWheelState(existing.state))
         setMode('remote')
         return
       }
 
       const { error: insErr } = await client.from('sessions').insert({
         id: sessionId,
-        tool: 'poll',
-        state: emptyPoll(),
+        tool: 'wheel',
+        state: emptyWheel(),
       })
 
       if (cancelled) return
@@ -140,14 +141,14 @@ export function usePollSession(
         setMode('local')
         return
       }
-      setPoll(parsePollState(row.state))
+      setWheel(parseWheelState(row.state))
       setMode('remote')
     }
 
     void loadRow()
 
     const channel = client
-      .channel(`sessions:${sessionId}`)
+      .channel(`wheel-sessions:${sessionId}`)
       .on(
         'postgres_changes',
         {
@@ -159,7 +160,7 @@ export function usePollSession(
         (payload) => {
           const row = payload.new as { state?: unknown } | null
           if (row?.state !== undefined)
-            setPoll(parsePollState(row.state))
+            setWheel(parseWheelState(row.state))
         },
       )
       .subscribe()
@@ -175,8 +176,7 @@ export function usePollSession(
       if (!actorDisplayName.trim()) return
       const t = text.trim()
       if (!t) return
-      const prev = pollRef.current
-      if (prev.closed) return
+      const prev = wheelRef.current
       const actor = actorDisplayName.trim()
       const optionId = crypto.randomUUID()
       let next = mergeParticipantName(prev, participantId, actorDisplayName)
@@ -191,71 +191,58 @@ export function usePollSession(
           targetId: optionId,
         }),
       }
-      setPoll(next)
+      setWheel(next)
       if (modeRef.current === 'remote') void persistRemote(next)
     },
     [actorDisplayName, participantId, persistRemote],
   )
 
-  const vote = useCallback(
-    (optionId: string) => {
-      if (!actorDisplayName.trim()) return
-      const prev = pollRef.current
-      if (prev.closed) return
-      const actor = actorDisplayName.trim()
-      const optLabel =
-        prev.options.find((o) => o.id === optionId)?.text ?? ''
-      let next = mergeParticipantName(prev, participantId, actorDisplayName)
-      next = {
-        ...next,
-        votes: { ...next.votes, [participantId]: optionId },
-        activity: appendActivity(next.activity, {
-          participantId,
-          actorName: actor,
-          kind: 'vote',
-          detail: optLabel,
-          targetId: optionId,
-        }),
+  const setResult = useCallback(
+    (
+      optionId: string | null,
+      spinMeta?: { winnerLabel?: string },
+    ) => {
+      const prev = wheelRef.current
+      let next: WheelState
+
+      if (optionId !== null && spinMeta && actorDisplayName.trim()) {
+        const actorName = actorDisplayName.trim()
+        next = mergeParticipantName(prev, participantId, actorDisplayName)
+        next = {
+          ...next,
+          resultId: optionId,
+          activity: appendActivity(next.activity, {
+            participantId,
+            actorName,
+            kind: 'spin_result',
+            detail: spinMeta.winnerLabel,
+            targetId: optionId,
+          }),
+        }
+      } else {
+        next = { ...prev, resultId: optionId }
       }
-      setPoll(next)
+
+      setWheel(next)
       if (modeRef.current === 'remote') void persistRemote(next)
     },
     [actorDisplayName, participantId, persistRemote],
   )
-
-  const closePoll = useCallback(() => {
-    if (!actorDisplayName.trim()) return
-    const prev = pollRef.current
-    if (prev.closed) return
-    const actor = actorDisplayName.trim()
-    let next = mergeParticipantName(prev, participantId, actorDisplayName)
-    next = {
-      ...next,
-      closed: true,
-      activity: appendActivity(next.activity, {
-        participantId,
-        actorName: actor,
-        kind: 'close_poll',
-      }),
-    }
-    setPoll(next)
-    if (modeRef.current === 'remote') void persistRemote(next)
-  }, [actorDisplayName, participantId, persistRemote])
 
   const undoActivity = useCallback(
     (eventId: string): string | null => {
       if (!actorDisplayName.trim()) return 'Set your name first.'
-      const prev = pollRef.current
+      const prev = wheelRef.current
       const ev = prev.activity?.find((e) => e.id === eventId)
       if (!ev) return 'Event not found.'
-      const result = applyPollUndo(prev, ev, participantId)
+      const result = applyWheelUndo(prev, ev, participantId)
       if ('error' in result) return result.error
       const next = mergeParticipantName(
         result.next,
         participantId,
         actorDisplayName,
       )
-      setPoll(next)
+      setWheel(next)
       if (modeRef.current === 'remote') void persistRemote(next)
       return null
     },
@@ -264,12 +251,11 @@ export function usePollSession(
 
   return {
     mode,
-    poll,
+    wheel,
     error,
     participantId,
     addOption,
-    vote,
-    closePoll,
+    setResult,
     undoActivity,
   }
 }
